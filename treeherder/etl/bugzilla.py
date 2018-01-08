@@ -76,7 +76,7 @@ class BzApiBugProcess():
                         for test_key in cache.iter_keys("tests_*"):
                             test = cache.get(test_key)
                             if test in bug_summary:
-                                cache.delete(test_key)
+                                cache.delete(test_key) # maybe don't need this line?
                                 cache_to_refresh.append(test_key)
 
                 except Exception as e:

@@ -10,6 +10,7 @@ from hashlib import sha1
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.core.validators import MinLengthValidator
 from django.db import (models,
                        transaction)
@@ -200,6 +201,10 @@ class Bugscache(models.Model):
 
     @classmethod
     def search(cls, search_term):
+        results = cache.get(search_term)
+        if results:
+            return results
+
         max_size = 50
         # 90 days ago
         time_limit = datetime.datetime.now() - datetime.timedelta(days=90)
@@ -235,8 +240,10 @@ class Bugscache(models.Model):
             LIMIT 0,%s''', [search_term_fulltext, search_term_like, time_limit,
                             max_size])
 
-        return {"open_recent": [model_to_dict(item, exclude=["modified"]) for item in recent],
-                "all_others": [model_to_dict(item, exclude=["modified"]) for item in all_others]}
+        cache.set(search_term, results)
+        results = {"open_recent": [model_to_dict(item, exclude=["modified"]) for item in recent],
+                   "all_others": [model_to_dict(item, exclude=["modified"]) for item in all_others]}
+        return results
 
 
 class Machine(NamedModel):

@@ -2,6 +2,7 @@ import logging
 
 import dateutil.parser
 from django.conf import settings
+from django.core.cache import cache
 from django.utils.encoding import smart_text
 
 from treeherder.etl.common import fetch_json
@@ -52,7 +53,7 @@ class BzApiBugProcess():
                 # just ignore it when importing/updating the bug to avoid
                 # a ValueError
                 try:
-                    Bugscache.objects.update_or_create(
+                    bug, created = Bugscache.objects.update_or_create(
                         id=bug['id'],
                         defaults={
                             'status': bug.get('status', ''),
@@ -65,5 +66,11 @@ class BzApiBugProcess():
                             'modified': dateutil.parser.parse(
                                 bug['last_change_time'], ignoretz=True)
                         })
+                    if created:
+                        # We should remove items from the cache keyed off a
+                        # search_term that is a substring of this summary.
+                        # That way,
+                        # the cache is invalidated so it can be recreated.
+                        cache.
                 except Exception as e:
                     logger.error("error inserting bug '%s' into db: %s", bug, e)

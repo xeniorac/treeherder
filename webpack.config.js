@@ -2,7 +2,6 @@ const path = require('path');
 
 const CleanWebpackPlugin = require('clean-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
-const HtmlWebpackIncludeSiblingChunksPlugin = require('html-webpack-include-sibling-chunks-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const HtmlWebpackTemplate = require('html-webpack-template');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
@@ -146,7 +145,6 @@ module.exports = {
     runtimeChunk: 'single'
   },
   plugins: [
-    new HtmlWebpackIncludeSiblingChunksPlugin(),
     new HtmlWebpackPlugin({
       template: './ui/index.html',
       inject: true,

@@ -5,6 +5,7 @@ import $ from 'jquery';
 import Mousetrap from 'mousetrap';
 
 import { thEvents } from '../../js/constants';
+import { withNotifications } from '../../context/NotificationContext';
 import { formatModelError } from '../../helpers/errorMessage';
 import { getJobBtnClass, getHoverText } from '../../helpers/job';
 import { isSHAorCommit } from '../../helpers/revision';
@@ -13,12 +14,11 @@ import BugJobMapModel from '../../models/bugJobMap';
 import JobClassificationModel from '../../models/classification';
 import JobModel from '../../models/job';
 
-export default class PinBoard extends React.Component {
+class PinBoard extends React.Component {
   constructor(props) {
     super(props);
 
     const { $injector } = this.props;
-    this.thNotify = $injector.get('thNotify');
     this.$timeout = $injector.get('$timeout');
     this.ThResultSetStore = $injector.get('ThResultSetStore');
     this.$rootScope = $injector.get('$rootScope');
@@ -73,7 +73,7 @@ export default class PinBoard extends React.Component {
   }
 
   save() {
-    const { isLoggedIn, pinnedJobs } = this.props;
+    const { isLoggedIn, pinnedJobs, notify } = this.props;
 
     let errorFree = true;
     if (this.state.enteringBugNumber) {
@@ -81,15 +81,15 @@ export default class PinBoard extends React.Component {
       // just forgot to hit enter. Returns false if invalid
       errorFree = this.saveEnteredBugNumber();
       if (!errorFree) {
-        this.$timeout(this.thNotify.send('Please enter a valid bug number', 'danger'));
+        notify.send('Please enter a valid bug number', 'danger');
       }
     }
     if (!this.canSaveClassifications() && isLoggedIn) {
-      this.$timeout(this.thNotify.send('Please classify this failure before saving', 'danger'));
+      notify.send('Please classify this failure before saving', 'danger');
       errorFree = false;
     }
     if (!isLoggedIn) {
-      this.$timeout(this.thNotify.send('Must be logged in to save job classifications', 'danger'));
+      notify.send('Must be logged in to save job classifications', 'danger');
       errorFree = false;
     }
     if (errorFree) {
@@ -128,6 +128,7 @@ export default class PinBoard extends React.Component {
   }
 
   saveClassification(job) {
+    const { notify } = this.props;
     const classification = this.createNewClassification();
 
     // classification can be left unset making this a no-op
@@ -138,16 +139,16 @@ export default class PinBoard extends React.Component {
 
       classification.job_id = job.id;
       return classification.create().then(() => {
-          this.thNotify.send(`Classification saved for ${job.platform} ${job.job_type_name}`, 'success');
+          notify.send(`Classification saved for ${job.platform} ${job.job_type_name}`, 'success');
         }).catch((response) => {
           const message = `Error saving classification for ${job.platform} ${job.job_type_name}`;
-          this.thNotify.send(formatModelError(response, message), 'danger');
+          notify.send(formatModelError(response, message), 'danger');
         });
     }
   }
 
   saveBugs(job) {
-    const { pinnedJobBugs } = this.props;
+    const { pinnedJobBugs, notify } = this.props;
 
     Object.values(pinnedJobBugs).forEach((bug) => {
       const bjm = new BugJobMapModel({
@@ -158,11 +159,11 @@ export default class PinBoard extends React.Component {
 
       bjm.create()
         .then(() => {
-          this.thNotify.send(`Bug association saved for ${job.platform} ${job.job_type_name}`, 'success');
+          notify.send(`Bug association saved for ${job.platform} ${job.job_type_name}`, 'success');
         })
         .catch((response) => {
           const message = `Error saving bug association for ${job.platform} ${job.job_type_name}`;
-          this.thNotify.send(formatModelError(response, message), 'danger');
+          notify.send(formatModelError(response, message), 'danger');
       });
     });
   }
@@ -358,7 +359,7 @@ export default class PinBoard extends React.Component {
   render() {
     const {
       selectedJob, revisionList, isLoggedIn, isVisible, classificationTypes,
-      pinnedJobs, pinnedJobBugs, removeBug, unPinJob,
+      pinnedJobs, pinnedJobBugs, removeBug, unPinJob, notify,
     } = this.props;
     const {
       failureClassificationId, failureClassificationComment,
@@ -366,6 +367,7 @@ export default class PinBoard extends React.Component {
     } = this.state;
     const selectedJobId = selectedJob ? selectedJob.id : null;
 
+    console.log('notify', notify);
     return (
       <div
         id="pinboard-panel"
@@ -559,6 +561,7 @@ PinBoard.propTypes = {
   unPinJob: PropTypes.func.isRequired,
   pinJob: PropTypes.func.isRequired,
   unPinAll: PropTypes.func.isRequired,
+  notify: PropTypes.object.isRequired,
   selectedJob: PropTypes.object,
   email: PropTypes.string,
   revisionList: PropTypes.array,
@@ -569,3 +572,5 @@ PinBoard.defaultProps = {
   email: null,
   revisionList: [],
 };
+
+export default withNotifications(PinBoard);

@@ -21,6 +21,7 @@ import TextLogStepModel from '../../models/textLogStep';
 import PinBoard from './PinBoard';
 import SummaryPanel from './summary/SummaryPanel';
 import TabsPanel from './tabs/TabsPanel';
+import NotificationList from '../NotificationList';
 
 export const pinboardHeight = 100;
 
@@ -435,6 +436,7 @@ export default class DetailsPanel extends React.Component {
         style={{ height: `${detailsPanelHeight}px` }}
         className={job ? 'details-panel-slide' : 'hidden'}
       >
+        <NotificationList />
         <PinBoard
           isVisible={isPinBoardVisible}
           selectedJob={job}

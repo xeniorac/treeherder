@@ -27,6 +27,7 @@ Contents:
    ui/index
    testcases
    admin
+   adrs
 
 
 Indices and tables

@@ -424,7 +424,7 @@ export default class DetailsPanel extends React.Component {
 
   render() {
     const {
-      repoName, $injector, user, currentRepo, resizedHeight,
+      repoName, $injector, user, currentRepo, resizedHeight, selectedJob,
     } = this.props;
     const {
       job, isPinBoardVisible, jobDetails, jobRevision, jobLogUrls, jobDetailLoading,
@@ -437,7 +437,7 @@ export default class DetailsPanel extends React.Component {
       <div
         id="details-panel"
         style={{ height: `${detailsPanelHeight}px` }}
-        className={job ? 'details-panel-slide' : 'hidden'}
+        className={selectedJob ? 'details-panel-slide' : 'hidden'}
       >
         <PinBoard
           isVisible={isPinBoardVisible}

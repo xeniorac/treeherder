@@ -3,9 +3,10 @@ import PropTypes from 'prop-types';
 import { react2angular } from 'react2angular/index.es2015';
 import SplitPane from 'react-split-pane';
 import { createBrowserHistory } from 'history';
+import Favicon from 'react-favicon';
 
 import treeherder from '../js/treeherder';
-import { thEvents } from '../js/constants';
+import { thEvents, thFavicons } from '../js/constants';
 import { deployedRevisionUrl } from '../helpers/url';
 import DetailsPanel from './details/DetailsPanel';
 import ActiveFilters from './headerbars/ActiveFilters';
@@ -181,9 +182,11 @@ class JobView extends React.Component {
     const detailsHeight = latestSplitPct === undefined || !selectedJob ?
       defaultDetailsHeight :
       getWindowHeight() * (1 - latestSplitPct / 100);
+    const currentTreeStatus = this.ThRepositoryModel.getCurrentTreeStatus();
 
     return (
       <React.Fragment>
+        <Favicon url={thFavicons[currentTreeStatus] || thFavicons.open} />
         <PrimaryNavBar
           jobFilters={this.thJobFilters}
           groupedRepos={this.ThRepositoryModel.getOrderedRepoGroups()}

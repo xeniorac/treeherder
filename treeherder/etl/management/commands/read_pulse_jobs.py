@@ -25,8 +25,9 @@ class Command(BaseCommand):
                 exchange = get_exchange(connection, source["exchange"])
 
                 for project in source["projects"]:
-                    consumer.bind_to(exchange=exchange, routing_key="#.{}".format(project))
-                    new_binding_str = consumer.get_binding_str(exchange.name, project)
+                    routing_key = "#.{}".format(project)
+                    consumer.bind_to(exchange=exchange, routing_key=routing_key)
+                    new_binding_str = consumer.get_binding_str(exchange.name, routing_key)
                     new_bindings.append(new_binding_str)
 
                     self.stdout.write(

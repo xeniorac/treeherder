@@ -135,7 +135,6 @@ export default class Push extends React.Component {
           isLoggedIn={isLoggedIn}
           isStaff={isStaff}
           repoName={repoName}
-          urlBasePath={urlBasePath}
           $injector={$injector}
           runnableVisible={runnableVisible}
           showRunnableJobsCb={this.showRunnableJobs}

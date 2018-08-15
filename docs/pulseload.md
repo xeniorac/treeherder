@@ -98,12 +98,12 @@ Advanced Configuration
 ### Changing which Data to Ingest
 
 ``treeherder.services.pulse.sources`` provides default sources for both Jobs and Pushes.
-However you can override these defaults using the standard env methods show below.
+You can override the defaults for Jobs using the environment variables show below.
 
 #### Pushes
-``PULSE_PUSH_SOURCES`` defines a list of dictionaries with exchange and routing key strings.
+``PULSE_PUSH_SOURCES`` defines and list of exchanges with routing keys.
 ```bash
-export PULSE_PUSH_SOURCES='[{"exchange": "exchange/taskcluster-github/v1/push","routing_keys": ["bugzilla#"]}]'
+export PULSE_PUSH_SOURCES="exchange/taskcluster-github/v1/push.foo:bar,exchange/hgpushes/v1.#",
 ```
 
 #### Jobs
@@ -111,10 +111,6 @@ export PULSE_PUSH_SOURCES='[{"exchange": "exchange/taskcluster-github/v1/push","
 ```bash
 export PULSE_JOB_EXCHANGES="exchange/taskcluster-treeherder/v1/jobs,exchange/fxtesteng/jobs"
 ```
-
-To change which exchanges you listen to for pushes, you would modify
-``PULSE_PUSH_SOURCES``.  For instance, to get only Gitbub pushes for Bugzilla,
-you would set:
 
 ``PULSE_JOB_PROJECTS`` defines a list of projects to listen to.
 ```bash

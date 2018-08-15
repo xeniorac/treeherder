@@ -29,16 +29,14 @@ job_sources = [{
 
 # Get Push ingestion source locations.
 # Specifies the Pulse exchanges Treeherder will ingest data from for Push data.
-push_sources = env.json(
+# Routing keys are specified after a period ("."), separated by colons (":").
+# Routing keys use a colon separator to avoid problems with defining multiple
+# push sources in an environment which are comma separated.
+push_sources = env.list(
     "PULSE_PUSH_SOURCES",
-    default=[{
-        "exchange": "exchange/taskcluster-github/v1/push",
-        "routing_keys": ['#'],
-    }, {
-        "exchange": "exchange/taskcluster-github/v1/pull-request",
-        "routing_keys": ['#'],
-    }, {
-        "exchange": "exchange/hgpushes/v1",
-        "routing_keys": ["#"]
-    }],
+    default=[
+        "exchange/taskcluster-github/v1/push.#",
+        "exchange/taskcluster-github/v1/pull-request.#",
+        "exchange/hgpushes/v1.#",
+    ],
 )

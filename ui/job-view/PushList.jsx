@@ -12,6 +12,7 @@ import {
 import PushLoadErrors from './PushLoadErrors';
 import { thEvents } from '../js/constants';
 import JobModel from '../models/job';
+import PushModel from '../models/push';
 
 export default class PushList extends React.Component {
 
@@ -25,7 +26,6 @@ export default class PushList extends React.Component {
     this.thNotify = $injector.get('thNotify');
     this.thJobFilters = $injector.get('thJobFilters');
     this.ThResultSetStore = $injector.get('ThResultSetStore');
-    this.ThResultSetModel = $injector.get('ThResultSetModel');
 
     this.ThResultSetStore.initRepository(repoName);
 
@@ -107,7 +107,7 @@ export default class PushList extends React.Component {
     this.jobsClassifiedUnlisten();
   }
 
-  getNextPushes(count, keepFilters) {
+  getNextPushes(count) {
     this.setState({ loadingPushes: true });
     const revision = this.$location.search().revision;
     if (revision) {
@@ -115,7 +115,7 @@ export default class PushList extends React.Component {
       this.$location.search('revision', null);
       this.$location.search('tochange', revision);
     }
-    this.ThResultSetStore.fetchPushes(count, keepFilters)
+    this.ThResultSetStore.fetchPushes(count)
       .then(this.updateUrlFromchange);
 
   }
@@ -140,7 +140,7 @@ export default class PushList extends React.Component {
       // If the ``selectedJob`` was not mapped, then we need to notify
       // the user it's not in the range of the current result set list.
       JobModel.get(repoName, selectedJobId).then((job) => {
-        this.ThResultSetModel.getResultSet(repoName, job.result_set_id).then((push) => {
+        PushModel.get(job.result_set_id).then((push) => {
           this.$location.search('selectedJob', null);
           const url = `${urlBasePath}?repo=${repoName}&revision=${push.data.revision}&selectedJob=${selectedJobId}`;
 
@@ -305,7 +305,7 @@ export default class PushList extends React.Component {
             {[10, 20, 50].map(count => (
               <div
                 className="btn btn-light-bordered"
-                onClick={() => (this.getNextPushes(count, true))}
+                onClick={() => (this.getNextPushes(count))}
                 key={count}
               >{count}</div>
             ))}

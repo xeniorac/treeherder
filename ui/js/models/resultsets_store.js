@@ -9,13 +9,13 @@ import { escapeId, getGroupMapKey } from '../../helpers/aggregateId';
 import treeherder from '../treeherder';
 import JobModel from '../../models/job';
 import RunnableJobModel from '../../models/runnableJob';
+import PushModel from '../../models/push';
 
 treeherder.factory('ThResultSetStore', [
     '$rootScope', '$q', '$location', '$interval',
-    'ThResultSetModel', 'thNotify', 'thJobFilters', '$timeout',
+    'thNotify', 'thJobFilters', '$timeout',
     function (
-        $rootScope, $q, $location, $interval, ThResultSetModel,
-        thNotify, thJobFilters, $timeout) {
+        $rootScope, $q, $location, $interval, thNotify, thJobFilters, $timeout) {
 
         // indexOf doesn't work on objects so we need to map thPlatformMap to an array (keeping only indexes)
         var platformArray = Object.keys(thPlatformMap);
@@ -82,14 +82,11 @@ treeherder.factory('ThResultSetStore', [
                         // push has been created on the server out of
                         // order with regards to its push_timestamp, we will
                         // still pick it up.
-                        var fromChangeRev = repoData.pushes[repoData.pushes.length - 1].revision;
-                        ThResultSetModel.getResultSetsFromChange(
-                            repoData.name,
-                            fromChangeRev,
-                            rsPollingParams,
-                        ).then(function (data) {
+                        const fromchange = repoData.pushes[repoData.pushes.length - 1].revision;
+                        PushModel.getList({ fromchange, ...rsPollingParams })
+                          .then((data) => {
                             prependPushes(data.data);
-                        });
+                          });
                     } else {
                         // cancel the interval for the polling, because
                         // the parameters mean we can get no more pushes.
@@ -133,15 +130,9 @@ treeherder.factory('ThResultSetStore', [
                 // also, if it's been too long, just refetch everything since
                 // getting updates can be extremely slow (and taxing on the
                 // server) if there are a lot of them
-                jobUpdatesPromise = $q.all(ThResultSetModel.getResultSetJobs(
-                    pushIdList,
-                    repoData.name,
-                ));
+                jobUpdatesPromise = $q.all(PushModel.getJobs(pushIdList));
             } else {
-                jobUpdatesPromise = ThResultSetModel.getResultSetJobsUpdates(
-                    pushIdList,
-                    repoData.name,
-                    lastJobUpdate);
+                jobUpdatesPromise = PushModel.getJobs(pushIdList, { lastModified: lastJobUpdate });
             }
             lastPolltime = Date.now();
             jobUpdatesPromise
@@ -648,6 +639,7 @@ treeherder.factory('ThResultSetStore', [
         };
 
         var appendPushes = function (data) {
+            console.log('appendPushes', data);
             if (data.results.length > 0) {
 
                 var rsIds = repoData.pushes.map(rs => rs.id);
@@ -677,6 +669,7 @@ treeherder.factory('ThResultSetStore', [
 
             repoData.loadingStatus.appending = false;
             $rootScope.$emit(thEvents.pushesLoaded);
+            return data;
         };
 
         /**
@@ -783,73 +776,70 @@ treeherder.factory('ThResultSetStore', [
             return repoData.jobMap;
         };
 
-        var fetchPushes = function (count, keepFilters) {
+        var fetchPushes = function (count) {
             /**
              * Get the next batch of pushes based on our current offset.
              * @param count How many to fetch
              */
             repoData.loadingStatus.appending = true;
-            var isAppend = (repoData.pushes.length > 0);
-            var pushes = { results: [] };
-            var loadResultsets = ThResultSetModel.getResultSets(repoData.name,
-                                                                repoData.rsMapOldestTimestamp,
-                                                                count,
-                                                                true,
-                                                                keepFilters)
-                    .then((data) => { pushes = data.data; });
+            const isAppend = (repoData.pushes.length > 0);
+            const options = { count };
 
-            return $q.all([loadResultsets])
-                .then(() => appendPushes(pushes),
-                     () => {
-                         thNotify.send('Error retrieving push data!', 'danger', { sticky: true });
-                         appendPushes({ results: [] });
-                     })
-                .then(() => {
-                    // if ``nojobs`` is on the query string, then don't load jobs.
-                    // this allows someone to more quickly load ranges of revisions
-                    // when they don't care about the specific jobs and results.
-                    if ($location.search().nojobs) {
-                        return;
-                    }
-                    var jobsPromiseList = ThResultSetModel.getResultSetJobs(
-                        pushes.results.map(result => result.id),
-                        repoData.name,
-                    );
-                    $q.all(jobsPromiseList)
-                        .then((pushJobList) => {
-                            var lastModifiedTimes = pushJobList
-                                .map(jobList => getLastModifiedJobTime(jobList))
-                                .filter(x => x);
-                            if (lastModifiedTimes.length) {
-                                var lastModifiedTime = _.max(lastModifiedTimes);
-                                // subtract 3 seconds to take in account a possible delay
-                                // between the job requests
-                                lastModifiedTime.setSeconds(lastModifiedTime.getSeconds() - 3);
+            if (repoData.rsMapOldestTimestamp) {
+              options.push_timestamp__lte = repoData.rsMapOldestTimestamp;
+            }
+            return PushModel.getList(options).then(async (resp) => {
+              if (resp.ok) {
+                const data = await resp.json();
 
-                                // only update lastJobUpdate if previously unset, as we
-                                // may have other pushes which need an earlier update
-                                // if it's been a while since we last polled
-                                if (!lastJobUpdate) {
-                                    lastJobUpdate = lastModifiedTime;
-                                }
-                            }
-                        });
-                    /*
-                     * this list of promises will tell us when the
-                     * mapPushJobs function will be applied to all the jobs
-                     * ie when we can register the job poller
-                     */
-                    var mapPushJobsPromiseList = jobsPromiseList
-                           .map(jobsPromise => jobsPromise
-                                .then(jobs => mapPushJobs(jobs)));
-                    $q.all(mapPushJobsPromiseList)
-                        .then(() => {
-                            $rootScope.$emit(thEvents.jobsLoaded);
-                            if (!isAppend) {
-                                registerJobsPoller();
-                            }
-                        });
-                });
+                return appendPushes(data.results.length ? data : { results: [] });
+              }
+              thNotify.send('Error retrieving push data!', 'danger', { sticky: true });
+              return appendPushes({ results: [] });
+            }).then((pushes) => {
+              // if ``nojobs`` is on the query string, then don't load jobs.
+              // this allows someone to more quickly load ranges of revisions
+              // when they don't care about the specific jobs and results.
+              if ($location.search().nojobs) {
+                  return;
+              }
+              const jobsPromiseList = pushes.results.map(push => PushModel.getJobs(push.id));
+
+              Promise.all(jobsPromiseList)
+                  .then((pushJobList) => {
+                      var lastModifiedTimes = pushJobList
+                          .map(jobList => getLastModifiedJobTime(jobList))
+                          .filter(x => x);
+                      if (lastModifiedTimes.length) {
+                          var lastModifiedTime = _.max(lastModifiedTimes);
+                          // subtract 3 seconds to take in account a possible delay
+                          // between the job requests
+                          lastModifiedTime.setSeconds(lastModifiedTime.getSeconds() - 3);
+
+                          // only update lastJobUpdate if previously unset, as we
+                          // may have other pushes which need an earlier update
+                          // if it's been a while since we last polled
+                          if (!lastJobUpdate) {
+                              lastJobUpdate = lastModifiedTime;
+                          }
+                      }
+                  });
+              /*
+               * this list of promises will tell us when the
+               * mapPushJobs function will be applied to all the jobs
+               * ie when we can register the job poller
+               */
+              var mapPushJobsPromiseList = jobsPromiseList
+                     .map(jobsPromise => jobsPromise
+                          .then(jobs => mapPushJobs(jobs)));
+              $q.all(mapPushJobsPromiseList)
+                  .then(() => {
+                      $rootScope.$emit(thEvents.jobsLoaded);
+                      if (!isAppend) {
+                          registerJobsPoller();
+                      }
+                  });
+          });
         };
 
         var getLastModifiedJobTime = function (jobList) {

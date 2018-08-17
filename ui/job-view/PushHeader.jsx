@@ -6,6 +6,7 @@ import { toDateStr } from '../helpers/display';
 import { formatModelError, formatTaskclusterError } from '../helpers/errorMessage';
 import { thEvents } from '../js/constants';
 import { getJobsUrl } from '../helpers/url';
+import PushModel from '../models/push';
 
 function Author(props) {
   const authorMatch = props.author.match(/\<(.*?)\>+/);
@@ -62,7 +63,6 @@ export default class PushHeader extends React.PureComponent {
     this.thNotify = $injector.get('thNotify');
     this.thBuildApi = $injector.get('thBuildApi');
     this.ThResultSetStore = $injector.get('ThResultSetStore');
-    this.ThResultSetModel = $injector.get('ThResultSetModel');
 
     this.pushDateStr = toDateStr(pushTimestamp);
     this.revisionPushFilterUrl = getJobsUrl({ repo: repoName, revision });
@@ -122,7 +122,7 @@ export default class PushHeader extends React.PureComponent {
     if (isLoggedIn) {
       const builderNames = this.ThResultSetStore.getSelectedRunnableJobs(pushId);
       this.ThResultSetStore.getGeckoDecisionTaskId(pushId).then((decisionTaskID) => {
-        this.ThResultSetModel.triggerNewJobs(builderNames, decisionTaskID).then((result) => {
+        PushModel.triggerNewJobs(builderNames, decisionTaskID, this.thNotify).then((result) => {
           this.thNotify.send(result, 'success');
           this.ThResultSetStore.deleteRunnableJobs(pushId);
           this.props.hideRunnableJobsCb();
@@ -142,7 +142,7 @@ export default class PushHeader extends React.PureComponent {
     this.setState({ showConfirmCancelAll: false });
     if (!isLoggedIn) return;
 
-    this.ThResultSetModel.cancelAll(pushId).then(() => (
+    PushModel.cancelAll(pushId).then(() => (
         this.thBuildApi.cancelAll(repoName, revision)
     )).catch((e) => {
       this.thNotify.send(

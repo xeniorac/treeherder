@@ -6,6 +6,7 @@ import { getBtnClass, getStatus } from '../../../helpers/job';
 import { getSlaveHealthUrl, getJobsUrl } from '../../../helpers/url';
 import JobModel from '../../../models/job';
 import TextLogStepModel from '../../../models/textLogStep';
+import PushModel from '../../../models/push';
 
 export default class SimilarJobsTab extends React.Component {
   constructor(props) {
@@ -13,7 +14,6 @@ export default class SimilarJobsTab extends React.Component {
 
     const { $injector } = this.props;
     this.$rootScope = $injector.get('$rootScope');
-    this.ThResultSetModel = $injector.get('ThResultSetModel');
     this.thNotify = $injector.get('thNotify');
     this.thClassificationTypes = $injector.get('thClassificationTypes');
 
@@ -69,8 +69,7 @@ export default class SimilarJobsTab extends React.Component {
       // create an array of unique push ids
       const pushIds = [...new Set(newSimilarJobs.map(job => job.result_set_id))];
       // get pushes and revisions for the given ids
-      const pushListResp = await this.ThResultSetModel.getResultSetList(repoName, pushIds, true);
-      const pushList = pushListResp.data;
+      const pushList = await PushModel.getList(pushIds);
       // decorate the list of jobs with their result sets
       const pushes = pushList.results.reduce((acc, push) => (
         { ...acc, [push.id]: push }

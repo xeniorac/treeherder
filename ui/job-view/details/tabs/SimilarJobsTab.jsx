@@ -69,20 +69,27 @@ export default class SimilarJobsTab extends React.Component {
       // create an array of unique push ids
       const pushIds = [...new Set(newSimilarJobs.map(job => job.result_set_id))];
       // get pushes and revisions for the given ids
-      const pushList = await PushModel.getList(pushIds);
-      // decorate the list of jobs with their result sets
-      const pushes = pushList.results.reduce((acc, push) => (
-        { ...acc, [push.id]: push }
-      ), {});
-      newSimilarJobs.forEach((simJob) => {
-        simJob.result_set = pushes[simJob.result_set_id];
-        simJob.revisionResultsetFilterUrl = getJobsUrl({ repo: repoName, revision: simJob.result_set.revisions[0].revision });
-        simJob.authorResultsetFilterUrl = getJobsUrl({ repo: repoName, author: simJob.result_set.author });
-      });
-      this.setState({ similarJobs: [...similarJobs, ...newSimilarJobs] });
-      // on the first page show the first element info by default
-      if (!selectedSimilarJob && newSimilarJobs.length > 0) {
-        this.showJobInfo(newSimilarJobs[0]);
+      let pushList = { results: [] };
+      const resp = await PushModel.getList({ id__in: pushIds.join(','), count: 100 });
+
+      if (resp.ok) {
+        pushList = await resp.json();
+        // decorate the list of jobs with their result sets
+        const pushes = pushList.results.reduce((acc, push) => (
+          { ...acc, [push.id]: push }
+        ), {});
+        newSimilarJobs.forEach((simJob) => {
+          simJob.result_set = pushes[simJob.result_set_id];
+          simJob.revisionResultsetFilterUrl = getJobsUrl({ repo: repoName, revision: simJob.result_set.revisions[0].revision });
+          simJob.authorResultsetFilterUrl = getJobsUrl({ repo: repoName, author: simJob.result_set.author });
+        });
+        this.setState({ similarJobs: [...similarJobs, ...newSimilarJobs] });
+        // on the first page show the first element info by default
+        if (!selectedSimilarJob && newSimilarJobs.length > 0) {
+          this.showJobInfo(newSimilarJobs[0]);
+        }
+      } else {
+        this.thNotify.send(`Error fetching similar jobs push data: ${resp.message}`, 'danger', { sticky: true });
       }
     }
     this.setState({ isLoading: false });

@@ -5,3 +5,11 @@ export const getAllUrlParams = function getAllUrlParams() {
 export const getUrlParam = function getUrlParam(name) {
   return getAllUrlParams().get(name);
 };
+
+export const getAllUrlParamsAsObject = function getAllUrlParamsAsObject() {
+  const params = getAllUrlParams();
+
+  return [...params.entries()].reduce((acc, [key, value]) => (
+    { ...acc, [key]: value }
+  ), {});
+};

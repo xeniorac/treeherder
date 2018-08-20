@@ -84,8 +84,13 @@ treeherder.factory('ThResultSetStore', [
                         // still pick it up.
                         const fromchange = repoData.pushes[repoData.pushes.length - 1].revision;
                         PushModel.getList({ fromchange, ...rsPollingParams })
-                          .then((data) => {
-                            prependPushes(data.data);
+                          .then(async (resp) => {
+                            if (resp.ok) {
+                              const data = await resp.json();
+                              prependPushes(data);
+                            } else {
+                              thNotify.send('Error fetching new push data', 'danger', { sticky: true });
+                            }
                           });
                     } else {
                         // cancel the interval for the polling, because
@@ -120,50 +125,50 @@ treeherder.factory('ThResultSetStore', [
             return (!_.has(rsParams, 'revision'));
         };
 
-        var pollJobs = function () {
-            var pushIdList = repoData.pushes
-                    .map(x => x.id);
+        const pollJobs = async () => {
+          const pushIdList = repoData.pushes.map(x => x.id);
+          const options = {};
 
-            var jobUpdatesPromise;
-            if (!lastJobUpdate || (Date.now() - lastPolltime) > maxPollInterval) {
-                // it is possible that some pushes might not have any jobs initially
-                // also, if it's been too long, just refetch everything since
-                // getting updates can be extremely slow (and taxing on the
-                // server) if there are a lot of them
-                jobUpdatesPromise = $q.all(PushModel.getJobs(pushIdList));
-            } else {
-                jobUpdatesPromise = PushModel.getJobs(pushIdList, { lastModified: lastJobUpdate });
+          // it is possible that some pushes might not have any jobs initially
+          // also, if it's been too long, just refetch everything since
+          // getting updates can be extremely slow (and taxing on the
+          // server) if there are a lot of them
+          if (lastJobUpdate && (Date.now() - lastPolltime) <= maxPollInterval) {
+            options.lastModified = lastJobUpdate;
+          }
+
+          lastPolltime = Date.now();
+          PushModel.getJobs(pushIdList, options).then((data) => {
+            const jobList = data;
+
+            if (jobList.length > 0) {
+              lastJobUpdate = getLastModifiedJobTime(jobList);
+              // group joblist by 'result_set_id'
+              let jobListByPush = jobList.reduce((acc, job, idx, arr, list = job => job.result_set_id) => (
+                { ...acc, [list(job)]: [...acc[list(job)] || [], job] }
+              ), {});
+              jobListByPush = Object.values(jobListByPush);
+              jobListByPush.forEach(singlePushJobList => mapPushJobs(singlePushJobList));
+              $rootScope.$emit(thEvents.jobsLoaded);
+            } else if (lastJobUpdate) {
+              // try to update the last poll interval to the greater of the
+              // last job update or the current time minus a small multiple of the
+              // job poll interval
+              // (this depends on the client having a reasonably accurate internal
+              // clock, but it should hopefully prevent us from getting too
+              // far behind in cases where we've stopped receiving job updates
+              // due e.g. to looking at a completed push)
+              lastJobUpdate = _.max([
+                  new Date(Date.now() - (5 * jobPollInterval)),
+                  lastJobUpdate,
+              ]);
             }
-            lastPolltime = Date.now();
-            jobUpdatesPromise
-                .then(function (jobList) {
-                    if (jobList.length > 0) {
-                        lastJobUpdate = getLastModifiedJobTime(jobList);
-                        // group joblist by 'result_set_id'
-                        var jobListByPush = jobList.reduce((acc, job, idx, arr, list = job => job.result_set_id) => (
-                            { ...acc, [list(job)]: [...acc[list(job)] || [], job] }
-                        ), {});
-                        jobListByPush = Object.values(jobListByPush);
-                        jobListByPush
-                            .forEach(singlePushJobList =>
-                                     mapPushJobs(singlePushJobList));
-                        $rootScope.$emit(thEvents.jobsLoaded);
-                    } else if (lastJobUpdate) {
-                        // try to update the last poll interval to the greater of the
-                        // last job update or the current time minus a small multiple of the
-                        // job poll interval
-                        // (this depends on the client having a reasonably accurate internal
-                        // clock, but it should hopefully prevent us from getting too
-                        // far behind in cases where we've stopped receiving job updates
-                        // due e.g. to looking at a completed push)
-                        lastJobUpdate = _.max([
-                            new Date(Date.now() - (5 * jobPollInterval)),
-                            lastJobUpdate,
-                        ]);
-                    }
-                    schedulePoll();
-                });
+            schedulePoll();
+          }).catch((error) => {
+            thNotify.send(`Error getting new jobs: ${error.toString()}`, 'danger', { sticky: true });
+          });
         };
+
         var registerJobsPoller = function () {
             if (!lastPolltime) {
                 lastPolltime = Date.now();
@@ -537,6 +542,9 @@ treeherder.factory('ThResultSetStore', [
                     .then((jobList) => {
                         jobList.forEach((job) => { updateJob(job); });
                         $timeout($rootScope.$emit(thEvents.jobsLoaded));
+                    })
+                    .catch((error) => {
+                      thNotify.send(`Error getting jobs: ${error.toString()}`, 'danger', { sticky: true });
                     });
             }
             // retry to fetch the unfetched jobs later
@@ -639,7 +647,6 @@ treeherder.factory('ThResultSetStore', [
         };
 
         var appendPushes = function (data) {
-            console.log('appendPushes', data);
             if (data.results.length > 0) {
 
                 var rsIds = repoData.pushes.map(rs => rs.id);
@@ -838,6 +845,9 @@ treeherder.factory('ThResultSetStore', [
                       if (!isAppend) {
                           registerJobsPoller();
                       }
+                  })
+                  .catch((error) => {
+                    thNotify.send(`Error getting jobs: ${error.toString()}`, 'danger', { sticky: true });
                   });
           });
         };

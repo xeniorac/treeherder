@@ -29,7 +29,6 @@ export default class PushList extends React.Component {
 
     this.ThResultSetStore.initRepository(repoName);
 
-    this.getNextPushes = this.getNextPushes.bind(this);
     this.updateUrlFromchange = this.updateUrlFromchange.bind(this);
     this.closeJob = this.closeJob.bind(this);
 
@@ -47,6 +46,8 @@ export default class PushList extends React.Component {
   }
 
   componentWillMount() {
+    this.getNextPushes = this.getNextPushes.bind(this);
+
     this.pushesLoadedUnlisten = this.$rootScope.$on(thEvents.pushesLoaded, () => {
       const pushList = this.ThResultSetStore.getPushArray();
       this.$timeout(() => {

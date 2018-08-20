@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 import { react2angular } from 'react2angular/index.es2015';
 import SplitPane from 'react-split-pane';
 import { createBrowserHistory } from 'history';
-import Favicon from 'react-favicon';
 
 import treeherder from '../js/treeherder';
 import { thEvents, thFavicons } from '../js/constants';
@@ -53,7 +52,6 @@ class JobView extends React.Component {
       serverChanged: false,
       repos: [],
       currentRepo: new RepositoryModel({ is_try_repo: true }),
-      currentTreeStatus: 'not yet loaded',
     };
   }
 
@@ -139,7 +137,7 @@ class JobView extends React.Component {
   }
 
   setCurrentRepoTreeStatus(status) {
-    this.setState({ currentTreeStatus: status });
+    document.getElementById('favicon').href = thFavicons[status] || thFavicons.open;
   }
 
   fetchDeployedRevision() {
@@ -181,7 +179,7 @@ class JobView extends React.Component {
     const {
       user, isFieldFilterVisible, filterBarFilters, serverChangedDelayed,
       defaultPushListPct, defaultDetailsHeight, latestSplitPct, serverChanged,
-      currentRepo, repoName, repos, currentTreeStatus,
+      currentRepo, repoName, repos,
     } = this.state;
 
     // TODO: Move this to the constructor.  We are hitting some issues where
@@ -204,7 +202,6 @@ class JobView extends React.Component {
 
     return (
       <div className="d-flex flex-column h-100">
-        <Favicon url={thFavicons[currentTreeStatus] || thFavicons.open} />
         <PrimaryNavBar
           jobFilters={this.thJobFilters}
           repos={repos}

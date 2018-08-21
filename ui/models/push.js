@@ -134,51 +134,51 @@ export default class PushModel {
 
     return taskclusterModel.load(decisionTaskId).then((results) => {
       const actionTaskId = slugid();
-      console.log('trying with tc model load', results);
+
       // In this case we have actions.json tasks
       if (results) {
         const talostask = results.actions.find(
           action => action.name === 'run-all-talos');
 
-        // We'll fall back to actions.yaml if this isn't true
         if (talostask) {
-          console.log('was going to do tcmodel submit');
-          // return taskclusterModel.submit({
-          //   action: talostask,
-          //   actionTaskId,
-          //   decisionTaskId,
-          //   taskId: null,
-          //   task: null,
-          //   input: { times },
-          //   staticActionVariables: results.staticActionVariables,
-          // }).then(() => (
-          //   `Request sent to trigger all talos jobs ${times} time(s) via actions.json (${actionTaskId})`
-          // ));
+          return taskclusterModel.submit({
+            action: talostask,
+            actionTaskId,
+            decisionTaskId,
+            taskId: null,
+            task: null,
+            input: { times },
+            staticActionVariables: results.staticActionVariables,
+          }).then(() => (
+            `Request sent to trigger all talos jobs ${times} time(s) via actions.json (${actionTaskId})`
+          ));
         }
+      } else {
+        throw Error('Trigger All Talos Jobs no longer supported for this repository.');
       }
 
-      console.log('trying with actions.yml');
-      // Otherwise we'll figure things out with actions.yml
-      const queue = taskcluster.getQueue();
-      const url = queue.buildUrl(queue.getLatestArtifact, decisionTaskId, 'public/action.yml');
-      return fetch(url).then(resp => resp.text().then((actionTemplate) => {
-        console.log('actionTemplate', actionTemplate);
-        templateSettings.interpolate = /{{([\s\S]+?)}}/g;
-        const compiled = template(actionTemplate);
-        const action = compiled({
-          action: 'add-talos',
-          action_args: `--decision-task-id=${decisionTaskId} --times=${times}`,
-          decision_task_id: decisionTaskId,
-          task_labels: 'meh',
-        });
-        console.log('actionTemplate for talos jobs', actionTaskId, action);
-
-        const task = taskcluster.refreshTimestamps(jsyaml.safeLoad(action));
-        console.log('task', task);
-        // return queue.createTask(actionTaskId, task).then(() => (
-        //   `Request sent to trigger all talos jobs ${times} time(s) via actions.yml (${actionTaskId})`
-        // ));
-      }));
+      // console.log('trying with actions.yml');
+      // // Otherwise we'll figure things out with actions.yml
+      // const queue = taskcluster.getQueue();
+      // const url = queue.buildUrl(queue.getLatestArtifact, decisionTaskId, 'public/action.yml');
+      // return fetch(url).then(resp => resp.text().then((actionTemplate) => {
+      //   console.log('actionTemplate', actionTemplate);
+      //   templateSettings.interpolate = /{{([\s\S]+?)}}/g;
+      //   const compiled = template(actionTemplate);
+      //   const action = compiled({
+      //     action: 'add-talos',
+      //     action_args: `--decision-task-id=${decisionTaskId} --times=${times}`,
+      //     decision_task_id: decisionTaskId,
+      //     task_labels: 'meh',
+      //   });
+      //   console.log('actionTemplate for talos jobs', actionTaskId, action);
+      //
+      //   const task = taskcluster.refreshTimestamps(jsyaml.safeLoad(action));
+      //   console.log('task', task);
+      //   // return queue.createTask(actionTaskId, task).then(() => (
+      //   //   `Request sent to trigger all talos jobs ${times} time(s) via actions.yml (${actionTaskId})`
+      //   // ));
+      // }));
     });
   }
 
@@ -191,7 +191,6 @@ export default class PushModel {
       'public/full-task-graph.json',
     );
     return fetch(url).then(resp => resp.json().then((graph) => {
-
       // Build a mapping of buildbot buildername to taskcluster tasklabel for bbb tasks
       const builderToTask = Object.entries(graph).reduce((currentMap, [key, value]) => {
         if (value && value.task && value.task.payload && value.task.payload.buildername) {
@@ -200,7 +199,6 @@ export default class PushModel {
         return currentMap;
       }, {});
       const allLabels = Object.keys(graph);
-
       const tclabels = [];
 
       buildernames.forEach(function (name) {
@@ -213,45 +211,44 @@ export default class PushModel {
           tclabels.push(name);
         }
       });
-
       if (tclabels.length === 0) {
-        return;
+        throw Error(`No tasks able to run for ${buildernames.join(', ')}`);
       }
 
       return taskclusterModel.load(decisionTaskId).then((results) => {
         const actionTaskId = slugid();
         // In this case we have actions.json tasks
         if (results) {
-          const addjobstask = results.actions.find(action =>
-                                                     action.name === 'add-new-jobs');
+          const addjobstask = results.actions.find(action => action.name === 'add-new-jobs');
           // We'll fall back to actions.yaml if this isn't true
           if (addjobstask) {
             return taskclusterModel.submit({
-                                             action: addjobstask,
-                                             actionTaskId,
-                                             decisionTaskId,
-                                             taskId: null,
-                                             task: null,
-                                             input: { tasks: tclabels },
-                                             staticActionVariables: results.staticActionVariables,
-                                           }).then(() => `Request sent to trigger new jobs via actions.json (${actionTaskId})`);
+              action: addjobstask,
+              actionTaskId,
+              decisionTaskId,
+              taskId: null,
+              task: null,
+              input: { tasks: tclabels },
+              staticActionVariables: results.staticActionVariables,
+            }).then(() => `Request sent to trigger new jobs via actions.json (${actionTaskId})`);
           }
         }
 
+        // TODO: Remove when esr52 is EOL.
         // Otherwise we'll figure things out with actions.yml
         const url = queue.buildUrl(queue.getLatestArtifact, decisionTaskId, 'public/action.yml');
-        return fetch(url).then(resp => resp.json().then((action) => {
+        return fetch(url).then(resp => resp.text().then((actionTemplate) => {
 
-          console.log('triggerNewJobs return template', action);
-          // TODO: how should I interpolate this template?
-          // const template = $interpolate(action);
-          // const taskLabels = tclabels.join(',');
-          // action = template({
-          //                     action: 'add-tasks',
-          //                     action_args: `--decision-id=${decisionTaskId} --task-labels=${taskLabels}`,
-          //                   });
-          // const task = taskcluster.refreshTimestamps(jsyaml.safeLoad(action));
-          // return queue.createTask(actionTaskId, task).then(() => `Request sent to trigger new jobs via actions.yml (${actionTaskId})`);
+          templateSettings.interpolate = /{{([\s\S]+?)}}/g;
+          const compiled = template(actionTemplate);
+          const taskLabels = tclabels.join(',');
+          const action = compiled({
+            decision_task_id: decisionTaskId,
+            task_labels: taskLabels,
+          });
+          const task = taskcluster.refreshTimestamps(jsyaml.safeLoad(action));
+          return queue.createTask(actionTaskId, task)
+            .then(() => `Request sent to trigger new jobs via actions.yml (${actionTaskId})`);
         }));
       });
     }));

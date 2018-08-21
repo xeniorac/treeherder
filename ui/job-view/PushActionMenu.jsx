@@ -91,12 +91,8 @@ export default class PushActionMenu extends React.PureComponent {
         PushModel.triggerAllTalosJobs(times, decisionTaskID, this.thNotify)
           .then((msg) => {
             this.thNotify.send(msg, 'success');
-          }, (e) => {
-            this.thNotify.send(
-              formatTaskclusterError(e),
-              'danger',
-              { sticky: true },
-            );
+          }).catch((e) => {
+            this.thNotify.send(formatTaskclusterError(e), 'danger', { sticky: true });
           });
       });
   }

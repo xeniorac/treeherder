@@ -69,7 +69,6 @@ export default class PushHeader extends React.PureComponent {
     this.authorPushFilterUrl = getJobsUrl({ repo: repoName, author });
 
     this.pinAllShownJobs = this.pinAllShownJobs.bind(this);
-    this.triggerNewJobs = this.triggerNewJobs.bind(this);
     this.cancelAllJobs = this.cancelAllJobs.bind(this);
 
     this.state = {
@@ -80,6 +79,8 @@ export default class PushHeader extends React.PureComponent {
   }
 
   componentWillMount() {
+    this.triggerNewJobs = this.triggerNewJobs.bind(this);
+
     this.toggleRunnableJobUnlisten = this.$rootScope.$on(
       thEvents.selectRunnableJob, (ev, runnableJobs, pushId) => {
         if (this.props.pushId === pushId) {
@@ -123,6 +124,7 @@ export default class PushHeader extends React.PureComponent {
       const builderNames = this.ThResultSetStore.getSelectedRunnableJobs(pushId);
       this.ThResultSetStore.getGeckoDecisionTaskId(pushId).then((decisionTaskID) => {
         PushModel.triggerNewJobs(builderNames, decisionTaskID, this.thNotify).then((result) => {
+          console.log('trigger result', result);
           this.thNotify.send(result, 'success');
           this.ThResultSetStore.deleteRunnableJobs(pushId);
           this.props.hideRunnableJobsCb();
@@ -287,15 +289,13 @@ PushHeader.propTypes = {
   showRunnableJobsCb: PropTypes.func.isRequired,
   hideRunnableJobsCb: PropTypes.func.isRequired,
   cycleWatchState: PropTypes.func.isRequired,
+  isLoggedIn: PropTypes.bool.isRequired,
+  isStaff: PropTypes.bool.isRequired,
   jobCounts: PropTypes.object,
   watchState: PropTypes.string,
-  isLoggedIn: PropTypes.bool,
-  isStaff: PropTypes.bool,
 };
 
 PushHeader.defaultProps = {
   jobCounts: null,
   watchState: 'none',
-  isLoggedIn: false,
-  isStaff: false,
 };
